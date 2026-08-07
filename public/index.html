@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sistema de Barbearia</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white min-h-screen p-6">
+  <div class="max-w-4xl mx-auto space-y-8">
+    
+    <header class="text-center border-b border-gray-800 pb-4">
+      <h1 class="text-3xl font-bold text-amber-500">💈 Barbearia - Agendamentos</h1>
+      <p class="text-gray-400 text-sm mt-1">Agende seu horário ou acesse o painel do barbeiro</p>
+    </header>
+
+    <!-- Agendamento -->
+    <section class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+      <h2 class="text-xl font-semibold mb-4 text-amber-400">📅 Agendar Horário</h2>
+      
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Data</label>
+          <input type="date" id="bookDate" value="2026-08-10" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Nome do Cliente</label>
+          <input type="text" id="clientName" placeholder="Seu Nome" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-400 mb-1">Telefone</label>
+          <input type="text" id="clientPhone" placeholder="16999998888" value="16999998888" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+        </div>
+      </div>
+
+      <button onclick="checkSlots()" class="bg-amber-600 hover:bg-amber-500 text-white font-medium py-2 px-4 rounded text-sm w-full md:w-auto mb-4">
+        Buscar Horários Livres
+      </button>
+
+      <div id="slotsContainer" class="flex flex-wrap gap-2 my-4"></div>
+      <div id="bookingStatus" class="text-sm font-semibold"></div>
+    </section>
+
+    <!-- Área do Barbeiro -->
+    <section class="bg-gray-800 p-6 rounded-xl border border-gray-700 shadow-lg">
+      <h2 class="text-xl font-semibold mb-4 text-blue-400">🔒 Área do Barbeiro</h2>
+      
+      <div id="loginBox" class="space-y-3 max-w-sm">
+        <input type="email" id="loginEmail" placeholder="E-mail" value="barbeiro@email.com" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+        <input type="password" id="loginPass" placeholder="Senha" value="123" class="w-full bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+        <button onclick="loginBarber()" class="bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 px-4 rounded text-sm w-full">Entrar</button>
+      </div>
+
+      <div id="adminPanel" class="hidden space-y-4">
+        <div class="flex justify-between items-center bg-gray-900 p-3 rounded border border-gray-700">
+          <span id="welcomeUser" class="text-sm font-medium text-green-400"></span>
+          <button onclick="logoutBarber()" class="text-xs bg-red-600 hover:bg-red-500 text-white px-3 py-1 rounded">Sair</button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input type="date" id="adminDate" value="2026-08-10" class="bg-gray-900 border border-gray-700 rounded p-2 text-white text-sm">
+          <button onclick="loadAdminAppointments()" class="bg-blue-600 hover:bg-blue-500 text-white text-sm px-4 py-2 rounded">Carregar Lista</button>
+        </div>
+
+        <ul id="appointmentsList" class="space-y-2"></ul>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let barberId = "";
+    let serviceId = "";
+    let jwtToken = localStorage.getItem("barber_token") || "";
+
+    async function init() {
+      try {
+        const res = await fetch('/services');
+        const data = await res.json();
+        
+        if (data.barberId && data.serviceId) {
+          barberId = data.barberId;
+          serviceId = data.serviceId;
+        }
+
+        if (jwtToken) showAdminPanel();
+        await checkSlots();
+      } catch (e) {
+        console.error("Erro na inicializacao:", e);
+      }
+    }
+
+    async function checkSlots() {
+      const date = document.getElementById("bookDate").value;
+      const container = document.getElementById("slotsContainer");
+      
+      if (!barberId || !serviceId) {
+        container.innerHTML = "<span class='text-red-400 text-sm'>Aguardando conexão com o banco...</span>";
+        return;
+      }
+
+      const res = await fetch(`/availability?barberId=${barberId}&serviceId=${serviceId}&date=${date}`);
+      const data = await res.json();
+      
+      container.innerHTML = "";
+
+      if (!data.availableSlots || data.availableSlots.length === 0) {
+        container.innerHTML = "<span class='text-red-400 text-sm'>Nenhum horário livre nesta data.</span>";
+        return;
+      }
+
+      data.availableSlots.forEach(slot => {
+        const btn = document.createElement("button");
+        btn.className = "bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-2 rounded shadow transition";
+        btn.innerText = slot;
+        btn.onclick = () => confirmBooking(slot, date);
+        container.appendChild(btn);
+      });
+    }
+
+    async function confirmBooking(slot, date) {
+      const clientName = document.getElementById("clientName").value;
+      const clientPhone = document.getElementById("clientPhone").value;
+      const statusDiv = document.getElementById("bookingStatus");
+
+      if (!clientName || !clientPhone) {
+        alert("Por favor, preencha nome e telefone!");
+        return;
+      }
+
+      const res = await fetch('/appointments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          barberId,
+          serviceId,
+          clientName,
+          clientPhone,
+          startTime: `${date}T${slot}:00.000Z`
+        })
+      });
+
+      const data = await res.json();
+      if (res.status === 201) {
+        statusDiv.className = "text-green-400 text-sm font-semibold mt-2";
+        statusDiv.innerText = `✅ Agendamento confirmado para às ${slot}!`;
+        checkSlots();
+        if (jwtToken) loadAdminAppointments();
+      } else {
+        statusDiv.className = "text-red-400 text-sm font-semibold mt-2";
+        statusDiv.innerText = `❌ Erro: ${data.error}`;
+      }
+    }
+
+    async function loginBarber() {
+      const email = document.getElementById("loginEmail").value;
+      const password = document.getElementById("loginPass").value;
+
+      const res = await fetch('/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (data.token) {
+        jwtToken = data.token;
+        localStorage.setItem("barber_token", jwtToken);
+        showAdminPanel();
+      } else {
+        alert("Login falhou: " + data.error);
+      }
+    }
+
+    function showAdminPanel() {
+      document.getElementById("loginBox").classList.add("hidden");
+      document.getElementById("adminPanel").classList.remove("hidden");
+      document.getElementById("welcomeUser").innerText = "Conectado como Barbeiro";
+      loadAdminAppointments();
+    }
+
+    function logoutBarber() {
+      localStorage.removeItem("barber_token");
+      jwtToken = "";
+      document.getElementById("loginBox").classList.remove("hidden");
+      document.getElementById("adminPanel").classList.add("hidden");
+    }
+
+    async function loadAdminAppointments() {
+      const date = document.getElementById("adminDate").value;
+      const res = await fetch(`/appointments?barberId=${barberId}&date=${date}`, {
+        headers: { Authorization: `Bearer ${jwtToken}` }
+      });
+
+      const list = await res.json();
+      const ul = document.getElementById("appointmentsList");
+      ul.innerHTML = "";
+
+      if (!Array.isArray(list) || list.length === 0) {
+        ul.innerHTML = "<li class='text-gray-400 text-xs'>Nenhum agendamento encontrado nesta data.</li>";
+        return;
+      }
+
+      list.forEach(item => {
+        const li = document.createElement("li");
+        const time = new Date(item.startTime).toISOString().substr(11, 5);
+        li.className = "flex justify-between items-center bg-gray-900 p-3 rounded border border-gray-700 text-xs";
+        li.innerHTML = `
+          <div>
+            <span class="font-bold text-amber-400">${time}</span> - ${item.clientName} (${item.clientPhone})
+            <span class="ml-2 px-2 py-0.5 rounded ${item.status === 'CANCELLED' ? 'bg-red-900 text-red-300' : 'bg-green-900 text-green-300'}">${item.status}</span>
+          </div>
+          ${item.status !== 'CANCELLED' ? `<button onclick="cancelApp('${item.id}')" class="bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded">Cancelar</button>` : ''}
+        `;
+        ul.appendChild(li);
+      });
+    }
+
+    async function cancelApp(id) {
+      if (!confirm("Deseja mesmo cancelar este agendamento?")) return;
+      await fetch(`/appointments/${id}/cancel`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${jwtToken}` }
+      });
+      loadAdminAppointments();
+      checkSlots();
+    }
+
+    init();
+  </script>
+</body>
+</html>
