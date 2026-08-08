@@ -3,38 +3,22 @@
   "version": "1.0.0",
   "main": "dist/server.js",
   "scripts": {
+    "dev": "tsx watch server.ts",
     "build": "tsc && npx prisma generate",
-    "start": "node dist/server.js",
-    "dev": "npx tsx server.ts"
+    "start": "node dist/server.js"
   },
   "dependencies": {
-    "@prisma/client": "^5.0.0",
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^4.22.2",
-    "jsonwebtoken": "^9.0.2",
-    "node-cron": "^3.0.3"
+    "@prisma/client": "^5.9.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.25",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/node": "^20.19.43",
-    "@types/node-cron": "^3.0.11",
-    "prisma": "^5.0.0",
-    "tsx": "^4.23.11",
-    "typescript": "^5.9.3"
-  }
-}
-{
-  "name": "meu-servidor",
-  "version": "1.0.0",
-  "main": "dist/server.js",
-  "scripts": {
-    "dev": "tsx watch server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js"
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.11.0",
+    "prisma": "^5.9.3",
+    "tsx": "^4.7.1",
+    "typescript": "^5.3.3"
   }
 }
