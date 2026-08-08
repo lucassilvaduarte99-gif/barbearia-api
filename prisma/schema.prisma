@@ -1,67 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-// Usuários do sistema (Barbeiros e Administradores)
 model User {
-  id        String   @id @default(uuid())
-  name      String
-  email     String   @unique
-  password  String
-  phone     String?
-  role      Role     @default(BARBER)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  workingHours WorkingHour[]
+  id           String        @id @default(uuid())
+  name         String
+  email        String        @unique
+  password     String
+  phone        String?
+  role         Role          @default(BARBER)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
   appointments Appointment[]
+  workingHours WorkingHour[]
 
   @@map("users")
 }
 
-enum Role {
-  ADMIN
-  BARBER
-}
-
-// Serviços da barbearia (Corte, Barba, etc.)
 model Service {
-  id          String   @id @default(uuid())
-  name        String
-  description String?
-  price       Decimal  @db.Decimal(10, 2)
-  durationMin Int      @map("duration_min")
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
+  id           String        @id @default(uuid())
+  name         String
+  description  String?
+  price        Decimal       @db.Decimal(10, 2)
+  durationMin  Int           @map("duration_min")
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
   appointments Appointment[]
 
   @@map("services")
 }
 
-// Expediente de trabalho dos barbeiros
 model WorkingHour {
-  id         String   @id @default(uuid())
-  userId     String   @map("user_id")
-  dayOfWeek  Int      @map("day_of_week") // 0 = Domingo, 1 = Segunda, ..., 6 = Sábado
-  startTime  String   @map("start_time")  // Ex: "09:00"
-  endTime    String   @map("end_time")    // Ex: "18:00"
-  breakStart String?  @map("break_start") // Ex: "12:00"
-  breakEnd   String?  @map("break_end")   // Ex: "13:00"
-  active     Boolean  @default(true)
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id         String  @id @default(uuid())
+  userId     String  @map("user_id")
+  dayOfWeek  Int     @map("day_of_week")
+  startTime  String  @map("start_time")
+  endTime    String  @map("end_time")
+  breakStart String? @map("break_start")
+  breakEnd   String? @map("break_end")
+  active     Boolean @default(true)
+  user       User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("working_hours")
 }
 
-// Agendamentos dos clientes
 model Appointment {
   id          String            @id @default(uuid())
   clientName  String            @map("client_name")
@@ -72,15 +60,18 @@ model Appointment {
   notes       String?
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
-
-  userId    String  @map("user_id")
-  serviceId String  @map("service_id")
-
-  barber  User    @relation(fields: [userId], references: [id])
-  service Service @relation(fields: [serviceId], references: [id])
+  userId      String            @map("user_id")
+  serviceId   String            @map("service_id")
+  service     Service           @relation(fields: [serviceId], references: [id])
+  barber      User              @relation(fields: [userId], references: [id])
 
   @@index([userId, startTime, endTime])
   @@map("appointments")
+}
+
+enum Role {
+  ADMIN
+  BARBER
 }
 
 enum AppointmentStatus {
@@ -88,4 +79,3 @@ enum AppointmentStatus {
   CANCELLED
   COMPLETED
 }
-

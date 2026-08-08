@@ -1,9 +1,11 @@
 import { PrismaClient } from '@prisma/client';
-import { getAvailableSlots } from './availability';
+import { getAvailableSlots } from './src/availability';
 
 const prisma = new PrismaClient();
 
 async function runTest() {
+  console.log('--- Iniciando teste de disponibilidade ---');
+
   // Busca o barbeiro e o serviço que criamos no seed
   const barber = await prisma.user.findFirst({ where: { role: 'BARBER' } });
   const service = await prisma.service.findFirst({ where: { name: 'Corte Social' } });
@@ -29,4 +31,3 @@ async function runTest() {
 runTest()
   .catch(console.error)
   .finally(() => prisma.$disconnect());
-  

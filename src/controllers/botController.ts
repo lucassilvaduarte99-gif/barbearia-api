@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
-import { getAvailableSlots } from '../../availability';
+import { getAvailableSlots } from '../availability';
 
 export const handleWhatsAppWebhook = async (req: Request, res: Response) => {
   try {

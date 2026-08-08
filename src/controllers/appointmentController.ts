@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { prisma } from '../config/prisma';
-import { getAvailableSlots } from '../../availability';
+import { getAvailableSlots } from '../availability';
 
 // Rota pública para obter Barbeiro e Serviço padrão
 export const getServices = async (req: Request, res: Response) => {
