@@ -1,88 +1,59 @@
-import express, { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
-import path from 'path';
-import { getAvailableSlots } from './availability';
+import express, { Express, Request, Response, NextFunction } from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
 
-const app = express();
-const prisma = new PrismaClient();
+dotenv.config();
 
-// Middlewares
-app.use(express.json());
-
-// Servir arquivos estáticos da pasta public (se existir)
-app.use(express.static(path.join(__dirname, '../public')));
-
-// Rota 1: Status da API / Frontend
-app.get('/', (req: Request, res: Response) => {
-  res.json({ status: 'API Barbearia rodando com sucesso!' });
-});
-
-// Rota 2: Buscar horários disponíveis
-app.get('/availability', async (req: Request, res: Response) => {
-  try {
-    const { barberId, serviceId, date } = req.query;
-
-    if (!barberId || !serviceId || !date) {
-      res.status(400).json({
-        error: 'Parâmetros obrigatórios ausentes: barberId, serviceId e date (YYYY-MM-DD)',
-      });
-      return;
-    }
-
-    const slots = await getAvailableSlots(
-      String(barberId),
-      String(serviceId),
-      String(date)
-    );
-
-    res.json({ date, availableSlots: slots });
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// Rota 3: Criar um novo agendamento
-app.post('/appointments', async (req: Request, res: Response) => {
-  try {
-    const { barberId, serviceId, clientName, clientPhone, startTime } = req.body;
-
-    if (!barberId || !serviceId || !clientName || !clientPhone || !startTime) {
-      res.status(400).json({ error: 'Todos os campos são obrigatórios' });
-      return;
-    }
-
-    const service = await prisma.service.findUnique({ where: { id: serviceId } });
-    if (!service) {
-      res.status(404).json({ error: 'Serviço não encontrado' });
-      return;
-    }
-
-    const start = new Date(startTime);
-    const end = new Date(start.getTime() + service.durationMin * 60000);
-
-    const appointment = await prisma.appointment.create({
-      data: {
-        userId: barberId,
-        serviceId: serviceId,
-        clientName,
-        clientPhone,
-        startTime: start,
-        endTime: end,
-        status: 'CONFIRMED',
-      },
-    });
-
-    res.status(201).json(appointment);
-  } catch (error: any) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-/// Rota raiz de teste
-app.get('/', (req: Request, res: Response) => {
-  res.json({ status: 'API Barbearia rodando com sucesso!' });
-});/ Configuração da porta do Render
+const app: Express = express();
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🚀 Servidor rodando na porta ${PORT}`);
+
+// ==========================
+// Middlewares Globais
+// ==========================
+app.use(cors());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ==========================
+// Rotas
+// ==========================
+// Health Check (Verificação de status do servidor)
+app.get('/health', (_req: Request, res: Response) => {
+  res.status(200).json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Registrar rotas modulares da API aqui:
+// app.use('/api', router);
+
+// ==========================
+// Tratamento de Erros
+// ==========================
+// Handler para rotas inexistentes (404)
+app.use((_req: Request, res: Response) => {
+  res.status(404).json({ error: 'Rota não encontrada' });
+});
+
+// Middleware de erro global
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
+  console.error('[Erro no Servidor]:', err.stack);
+  res.status(500).json({ error: 'Erro interno do servidor' });
+});
+
+// ==========================
+// Inicialização & Shutdown
+// ==========================
+const server = app.listen(PORT, () => {
+  console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
+});
+
+// Encerramento gracioso (Graceful Shutdown)
+const shutdown = (signal: string) => {
+  console.log(`\nSinal ${signal} recebido. Encerrando servidor...`);
+  server.close(() => {
+    console.log('Servidor finalizado com sucesso.');
+    process.exit(0);
+  });
+};
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
